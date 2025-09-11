@@ -69,6 +69,127 @@ Documentation & Specs
 - Janela temporal relativa ao horário da requisição (UTC atual): somente mensagens no intervalo `[now - time_window, now]`.
 - Timestamps obrigatórios em RFC 3339 estrito com sufixo `Z` (UTC). Erros de parsing retornam `400 INVALID_TIMESTAMP`.
 
+Guia Completo de Implementação — 1 Dia
+
+Etapa 1 — Clarificações Críticas
+
+1) Tokenização e Normalização Detalhada
+
+- Processo de tokenização:
+  1) Split por espaços e pontuação: `.,!?;:"()[]{}…`
+  2) Manter hashtags intactas: `#produto-novo` conta como 1 token
+  3) Para matching do lexicon: converter tokens para lowercase e aplicar NFKD (remover acentos)
+  4) Para cálculos: usar o token original (case e acentos preservados)
+- Normalização para matching:
+  - "Adoré" → "adore" (busca no lexicon)
+  - "NÃO" → "nao" (busca no lexicon)
+  - Hashtags são ignoradas no processamento de sentimento
+- Exemplo:
+  - Input: "Não muito bom! #produto"
+  - Tokens: ["Não", "muito", "bom", "#produto"]
+  - Para lexicon: ["nao", "muito", "bom"] (hashtag excluída)
+
+2) Janela Temporal (baseada no horário da requisição)
+
+- Ponto de referência: timestamp atual da requisição em UTC
+- Filtro: incluir apenas mensagens com `timestamp >= (now_utc - time_window_minutes)`
+- Exemplo: `time_window_minutes = 30`, `now = 2025-09-10T11:00:00Z` → considerar `>= 2025-09-10T10:30:00Z`
+
+3) Algoritmo de Sentimento (ordem fixa)
+
+- Sequência por mensagem:
+  1) Tokenizar/normalizar (conforme acima)
+  2) Mapear intensificadores e negações (escopo de 3 tokens)
+  3) Para cada palavra de polaridade:
+     - a) valor base (+1 positivos, -1 negativos)
+     - b) aplicar intensificador (×1.5)
+     - c) aplicar negação conforme paridade (×-1 se ímpar)
+     - d) aplicar regra MBRAS (×2 apenas para positivos após b/c)
+  4) Score: `(Σpos - Σneg) / total_words`
+- Exemplos:
+  - "Não muito bom" (usuário normal): bom = +1 ×1.5 → -1.5 (negado) ⇒ score = -1.5/3 = -0.5 ⇒ negative
+  - "Super adorei!" (user_mbras_123): adorei = +1 ×1.5 ×2 = +3.0 ⇒ score = 3.0/2 = 1.5 ⇒ positive
+
+4) Edge Cases Fundamentais (casos obrigatórios)
+
+- Teste 3A — Intensificador órfão: "muito" ⇒ neutral 100%
+- Teste 3B — Negação dupla: "não não gostei" ⇒ negative > 0 (negações dentro do escopo não necessariamente se cancelam se intercaladas)
+- Teste 3C — Case sensitivity MBRAS: `user_MBRAS_007` ⇒ `flags.mbras_employee = true`
+
+Etapa 2 — Documentação Essencial
+
+Exemplo Detalhado de Cálculo
+
+Input (resumido):
+
+```json
+{
+  "messages": [
+    {
+      "id": "msg_example",
+      "content": "Super adorei o produto!",
+      "timestamp": "2025-09-10T10:45:00Z",
+      "user_id": "user_mbras_007",
+      "hashtags": ["#review"],
+      "reactions": 20,
+      "shares": 5,
+      "views": 200
+    }
+  ],
+  "time_window_minutes": 30
+}
+```
+
+Passo-a-passo (sentimento): tokens ["Super", "adorei", "o", "produto"], intensificador em "adorei" (+1 → +1.5), MBRAS dobra positivo (+3.0); score = 3.0/4 = 0.75 ⇒ positive.
+
+Influência: aplica followers simulados via SHA-256, taxa de engajamento `(reactions+shares)/views = 25/200 = 0.125`, 007 reduz ×0.5 e bônus MBRAS +2.0 ao final.
+
+Etapa 3 — Exemplos e Testes
+
+- `examples/sample_request.json`: exemplo de payload básico
+- `examples/edge_cases.json`: intensificador órfão, negação dupla, case MBRAS
+- `tests/test_analyzer.py`: contém todos os 6 casos obrigatórios, incluindo 2A/2B
+- Performance opcional: `tests/test_performance.py` (habilite com `RUN_PERF=1`)
+
+Etapa 4 — Estrutura e Checklist Final
+
+Estrutura mínima do projeto
+
+```
+projeto/
+├── README.md                    # Setup e execução (≤ 5 comandos)
+├── main.py | main.go            # Servidor web principal
+├── sentiment_analyzer.py | sentiment.go  # Lógica de análise
+├── tests/
+│   └── test_analyzer.py | analyzer_test.go  # 6 casos obrigatórios
+├── examples/
+│   ├── sample_request.json
+│   └── edge_cases.json
+└── requirements.txt | go.mod
+```
+
+Arquivos obrigatórios para entrega
+
+- Implementação funcional dos 6 casos:
+  - Teste 1: Básico (positivo)
+  - Teste 2A: 422 para janela 123
+  - Teste 2B: Flags especiais + engagement_score 9.42
+  - Teste 3A: Intensificador órfão → neutral 100%
+  - Teste 3B: Negação dupla → negative > 0
+  - Teste 3C: Case MBRAS → mbras_employee true
+- README com setup em até 5 comandos
+- Código organizado e determinístico
+
+Checklist de conformidade final
+
+- Testes obrigatórios passam (1, 2A, 2B, 3A, 3B, 3C)
+- Tempo de resposta < 200ms (1000 msgs, opcional)
+- Memória ≤ 20MB (10k msgs, meta de doc.)
+- Validações 400/422 conforme especificado
+- Tokenização/normalização, janela temporal e precedência corretas
+- Flags MBRAS case-insensitive e anomalias ativas
+- Trending topics com peso temporal
+
 Project Structure
 
 ```

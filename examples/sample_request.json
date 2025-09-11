@@ -3,14 +3,33 @@
     {
       "id": "msg_001",
       "content": "Adorei o novo produto!",
-      "timestamp": "2025-09-10T10:30:00Z",
-      "user_id": "user_mbras_007",
+      "timestamp": "2025-09-10T10:00:00Z",
+      "user_id": "user_123",
       "hashtags": ["#produto", "#review"],
-      "reactions": 12,
-      "shares": 3,
-      "views": 250
+      "reactions": 10,
+      "shares": 2,
+      "views": 100
+    },
+    {
+      "id": "msg_002",
+      "content": "Não gostei do atendimento, péssimo",
+      "timestamp": "2025-09-10T10:02:00Z",
+      "user_id": "user_987",
+      "hashtags": ["#atendimento"],
+      "reactions": 4,
+      "shares": 1,
+      "views": 80
+    },
+    {
+      "id": "msg_003",
+      "content": "Super excelente! Produto perfeito",
+      "timestamp": "2025-09-10T10:04:30Z",
+      "user_id": "user_mbras_1007",
+      "hashtags": ["#produto", "#top"],
+      "reactions": 20,
+      "shares": 5,
+      "views": 300
     }
   ],
   "time_window_minutes": 30
 }
-
