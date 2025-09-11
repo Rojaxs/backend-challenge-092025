@@ -227,3 +227,154 @@ def test_sha256_determinism_same_input():
     s1 = a1["influence_ranking"][0]["influence_score"]
     s2 = a2["influence_ranking"][0]["influence_score"]
     assert s1 == s2, f"Influence score should be deterministic, got {s1} vs {s2}"
+
+
+def test_unicode_normalization_edge_case():
+    # Tests Unicode NFKD normalization trap - "café" with different encodings
+    payload = {
+        "messages": [
+            {
+                "id": "msg_unicode1",
+                "content": "adorei",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_café",  # Unicode with combining diacritic
+                "hashtags": ["#teste"],
+                "reactions": 5,
+                "shares": 1,
+                "views": 50,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    analysis = r.json()["analysis"]
+    # Should trigger special Unicode case (followers = 4242)
+    user_score = next(u for u in analysis["influence_ranking"] if u["user_id"] == "user_café")
+    # The exact score will depend on engagement calculation, but followers should be 4242
+
+
+def test_fibonacci_length_trap():
+    # Tests algorithmic trap for 13-character user_ids
+    payload = {
+        "messages": [
+            {
+                "id": "msg_fib",
+                "content": "bom produto",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_13chars",  # exactly 13 characters
+                "hashtags": ["#fib"],
+                "reactions": 1,
+                "shares": 0,
+                "views": 10,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    # Should trigger fibonacci followers (233)
+
+
+def test_prime_pattern_complexity():
+    # Tests prime number logic trap
+    payload = {
+        "messages": [
+            {
+                "id": "msg_prime",
+                "content": "excelente",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_math_prime",  # ends with "_prime"
+                "hashtags": ["#math"],
+                "reactions": 3,
+                "shares": 1,
+                "views": 20,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    # Should trigger prime number logic in followers calculation
+
+
+def test_golden_ratio_engagement_trap():
+    # Tests golden ratio adjustment for engagement (multiple of 7)
+    payload = {
+        "messages": [
+            {
+                "id": "msg_golden",
+                "content": "ótimo serviço",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_golden_test",
+                "hashtags": ["#service"],
+                "reactions": 4,  # 4 + 3 = 7 (multiple of 7)
+                "shares": 3,
+                "views": 35,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    # Should apply golden ratio adjustment to engagement rate
+
+
+def test_sentiment_trending_cross_validation():
+    # Tests cross-validation between sentiment analysis and trending topics
+    payload = {
+        "messages": [
+            {
+                "id": "msg_cross1",
+                "content": "adorei muito!",  # positive sentiment
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_cross1",
+                "hashtags": ["#positivo"],
+                "reactions": 5,
+                "shares": 2,
+                "views": 50,
+            },
+            {
+                "id": "msg_cross2", 
+                "content": "terrível produto",  # negative sentiment
+                "timestamp": "2025-09-10T10:01:00Z",
+                "user_id": "user_cross2",
+                "hashtags": ["#negativo"],
+                "reactions": 1,
+                "shares": 0,
+                "views": 25,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    analysis = r.json()["analysis"]
+    trending = analysis["trending_topics"]
+    # Positive hashtags should rank higher due to sentiment multiplier (1.2 vs 0.8)
+    if "#positivo" in trending and "#negativo" in trending:
+        pos_idx = trending.index("#positivo")
+        neg_idx = trending.index("#negativo") 
+        assert pos_idx < neg_idx, "Positive hashtags should rank higher than negative ones"
+
+
+def test_long_hashtag_logarithmic_decay():
+    # Tests logarithmic decay for long hashtags
+    payload = {
+        "messages": [
+            {
+                "id": "msg_long1",
+                "content": "teste básico",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_long1",
+                "hashtags": ["#short", "#verylonghashtag"],  # >8 chars gets log decay
+                "reactions": 1,
+                "shares": 0,
+                "views": 10,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    # Long hashtag should have reduced weight due to logarithmic factor

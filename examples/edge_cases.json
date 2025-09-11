@@ -2,7 +2,12 @@
   "messages": [
     { "id": "e1", "content": "muito", "timestamp": "2025-09-10T10:00:00Z", "user_id": "user_aa1", "hashtags": [], "reactions": 0, "shares": 0, "views": 1 },
     { "id": "e2", "content": "não não gostei", "timestamp": "2025-09-10T10:00:01Z", "user_id": "user_aa2", "hashtags": [], "reactions": 0, "shares": 0, "views": 1 },
-    { "id": "e3", "content": "#produto-novo ótimo!", "timestamp": "2025-09-10T10:00:02Z", "user_id": "user_aa3", "hashtags": ["#produto-novo"], "reactions": 5, "shares": 1, "views": 50 }
+    { "id": "e3", "content": "#produto-novo ótimo!", "timestamp": "2025-09-10T10:00:02Z", "user_id": "user_aa3", "hashtags": ["#produto-novo"], "reactions": 5, "shares": 1, "views": 50 },
+    { "id": "e4", "content": "adorei muito este café!", "timestamp": "2025-09-10T10:00:03Z", "user_id": "user_café", "hashtags": ["#café"], "reactions": 5, "shares": 1, "views": 50 },
+    { "id": "e5", "content": "produto perfeito", "timestamp": "2025-09-10T10:00:04Z", "user_id": "user_13chars", "hashtags": ["#perfeito"], "reactions": 3, "shares": 1, "views": 30 },
+    { "id": "e6", "content": "excelente qualidade", "timestamp": "2025-09-10T10:00:05Z", "user_id": "user_math_prime", "hashtags": ["#qualidade"], "reactions": 4, "shares": 3, "views": 35 },
+    { "id": "e7", "content": "super adorei o produto mbras especificamente!", "timestamp": "2025-09-10T10:00:06Z", "user_id": "user_mbras_special", "hashtags": ["#verylonghashtag", "#short"], "reactions": 7, "shares": 0, "views": 70 },
+    { "id": "e8", "content": "terrível atendimento hoje", "timestamp": "2025-09-10T10:00:07Z", "user_id": "user_negative_test", "hashtags": ["#atendimento"], "reactions": 2, "shares": 0, "views": 25 }
   ],
   "time_window_minutes": 30
 }

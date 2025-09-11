@@ -75,3 +75,24 @@ MBRAS bonus: +2.0
 - Formato obrigatório: RFC 3339 UTC com `Z` estrito: `YYYY-MM-DDTHH:MM:SSZ`.
 - Timestamps malformados ⇒ `400 INVALID_TIMESTAMP`.
 
+## Casos Especiais Algorítmicos
+
+### Unicode e Normalização
+- `user_café` (com acento) → normalização NFKD pode gerar followers especiais (4242)
+- Matching case-insensitive mas preservando caracteres originais
+
+### Padrões Matemáticos  
+- `user_id` com exatos 13 caracteres → followers = 233 (13º Fibonacci)
+- `user_id` terminado em `_prime` → aplicar lógica de números primos
+- Interações múltiplas de 7 → ajuste Golden Ratio: `rate × (1 + 1/φ)`
+
+### Trending Topics Avançado
+- Hashtags >8 chars → fator logarítmico `log₁₀(len)/log₁₀(8)`
+- Sentimento influencia peso: positivo ×1.2, negativo ×0.8
+- Desempate final: peso → frequência → peso_sentimento → lexicográfico
+
+### Validação Cruzada
+- Anomalias dependem de análise de sentimento prévia
+- Trending topics requer sentimento calculado primeiro
+- Influence score combina múltiplos algoritmos deterministicamente
+

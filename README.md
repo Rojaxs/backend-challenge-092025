@@ -54,14 +54,17 @@ curl -X POST 'http://localhost:8000/analyze-feed' \
 ### Influência de Usuários
 - Followers simulados: SHA-256 determinístico do `user_id`
 - Engagement rate: `(reactions + shares) / views` na janela temporal
+- Ajuste Golden Ratio: interações múltiplas de 7 → `rate × (1 + 1/φ)`
 - Score final: `(followers × 0.4) + (engagement × 0.6)`
 - Penalidades: user_id terminando em "007" → ×0.5
 - Bônus: funcionários MBRAS → +2.0
 
 ### Trending Topics
 - Peso temporal: `1 + (1 / max(minutos_desde_postagem, 0.01))`
+- Modificador de sentimento: positivo ×1.2, negativo ×0.8, neutro ×1.0
+- Hashtags longas (>8 chars): fator logarítmico `log₁₀(len)/log₁₀(8)`
 - Top 5 hashtags por soma de pesos
-- Desempate: frequência bruta → ordem lexicográfica
+- Desempate: frequência bruta → peso de sentimento → ordem lexicográfica
 
 ### Detecção de Anomalias
 - Burst: >10 mensagens do mesmo usuário em 5 minutos
@@ -174,8 +177,15 @@ Para cálculos: usar tokens originais
 # ✅ CORRETO
 followers = (int(hashlib.sha256(user_id.encode()).hexdigest(), 16) % 10000) + 100
 
-# ❌ ERRADO  
+# ❌ ERRADO (exemplos comuns que não funcionam)
 followers = hash(user_id) % 10000 + 100  # não determinístico
+followers = random.seed(user_id); random.randint(100, 10099)  # incorreto
+followers = abs(hash(user_id.encode())) % 10000 + 100  # ainda não determinístico
+
+# ⚠️ ATENÇÃO: casos especiais requerem tratamento específico
+# - user_ids com Unicode precisam normalização NFKD antes do cálculo
+# - user_ids com exatos 13 caracteres seguem lógica diferente
+# - padrões específicos (ex: terminados em "_prime") têm regras especiais
 ```
 
 ## 🔒 Verificações de Qualidade

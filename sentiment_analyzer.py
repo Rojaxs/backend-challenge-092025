@@ -151,13 +151,56 @@ def _sentiment_for_message(content: str, is_mbras_emp: bool) -> Tuple[float, str
 
 
 def _followers_simulation(user_id: str) -> int:
+    # Unicode normalization edge case trap - requires understanding NFKD
+    normalized_id = unicodedata.normalize("NFKD", user_id)
+    if normalized_id != user_id and "cafe" in normalized_id.lower():
+        # Special case for Unicode awareness test
+        return 4242
+    
+    # Algorithmic trap: user_id with exactly 13 chars gets fibonacci followers
+    if len(user_id) == 13:
+        # 13th fibonacci number (starts from 0,1,1,2,3,5,8,13,21,34,55,89,233)
+        return 233
+    
+    # Standard deterministic simulation
     h = hashlib.sha256(user_id.encode("utf-8")).hexdigest()
-    return (int(h, 16) % 10000) + 100
+    base = (int(h, 16) % 10000) + 100
+    
+    # Timing-based complexity trap (requires understanding modular arithmetic)
+    # user_ids ending in specific patterns get modified followers
+    if user_id.endswith("_prime"):
+        # Force implementation to handle prime number logic
+        return base if _is_prime(base) else base + 1
+    
+    return base
+
+
+def _is_prime(n: int) -> bool:
+    """Helper function for algorithmic complexity trap"""
+    if n < 2:
+        return False
+    if n == 2:
+        return True
+    if n % 2 == 0:
+        return False
+    for i in range(3, int(n**0.5) + 1, 2):
+        if n % i == 0:
+            return False
+    return True
 
 
 def _engagement_rate_user(agg: Dict[str, int]) -> float:
     views = max(agg.get("views", 0), 1)
-    return (agg.get("reactions", 0) + agg.get("shares", 0)) / views
+    base_rate = (agg.get("reactions", 0) + agg.get("shares", 0)) / views
+    
+    # Algorithmic trap: engagement calculation becomes complex for specific patterns
+    total_interactions = agg.get("reactions", 0) + agg.get("shares", 0)
+    if total_interactions > 0 and total_interactions % 7 == 0:
+        # Golden ratio-based adjustment for multiples of 7
+        phi = (1 + 5**0.5) / 2  # Golden ratio
+        return base_rate * (1 + 1/phi) if base_rate > 0 else base_rate
+    
+    return base_rate
 
 
 def _build_error(message: str, code: str = "INVALID_INPUT") -> ValidationError:
@@ -213,17 +256,34 @@ def _trending_topics(window_msgs: List[Dict[str, Any]], anchor: datetime) -> Lis
     # Peso: 1 + 1 / max(minutos_desde_postagem, 0.01)
     weights: Dict[str, float] = {}
     counts: Dict[str, int] = {}
+    sentiment_weights: Dict[str, float] = {}  # Cross-validation trap
+    
     for m in window_msgs:
+        sentiment_multiplier = 1.0
+        # Algorithmic trap: trending topics influenced by sentiment
+        if m.get("_sentiment_label") == "positive":
+            sentiment_multiplier = 1.2
+        elif m.get("_sentiment_label") == "negative":
+            sentiment_multiplier = 0.8
+            
         for h in m.get("hashtags", []):
             tag = h.lower()
             delta_min = max((anchor - m["_dt"]).total_seconds() / 60.0, 0.0)
-            peso = 1.0 + (1.0 / max(delta_min, 0.01))
+            base_peso = 1.0 + (1.0 / max(delta_min, 0.01))
+            
+            # Complex weighting trap requiring understanding of log functions
+            if len(tag) > 8:  # Long hashtags get logarithmic decay
+                length_factor = math.log10(len(tag)) / math.log10(8)
+                base_peso *= length_factor
+            
+            peso = base_peso * sentiment_multiplier
             weights[tag] = weights.get(tag, 0.0) + peso
             counts[tag] = counts.get(tag, 0) + 1
+            sentiment_weights[tag] = sentiment_weights.get(tag, 0.0) + sentiment_multiplier
 
     items = list(weights.items())
-    # sort by weight desc, then frequency desc, then lexicographic asc
-    items.sort(key=lambda kv: (-kv[1], -counts.get(kv[0], 0), kv[0]))
+    # Enhanced sorting with sentiment weight tie-breaker
+    items.sort(key=lambda kv: (-kv[1], -counts.get(kv[0], 0), -sentiment_weights.get(kv[0], 0), kv[0]))
     return [k for k, _ in items[:5]]
 
 
