@@ -34,24 +34,23 @@ INTENSIFIER_SET = {_strip_accents_lower(w) for w in INTENSIFIERS}
 NEGATION_SET = {_strip_accents_lower(w) for w in NEGATIONS}
 
 
-TOKEN_RE = re.compile(r"\w+", re.UNICODE)
-PUNCT_RE = re.compile(r"[\W_]+", re.UNICODE)
+# Tokenization: words or hashtags (with optional hyphens). Emojis ignored.
+TOKEN_RE = re.compile(r"(?:#\w+(?:-\w+)*)|\b\w+\b", re.UNICODE)
+PUNCT_RE = re.compile(r"[\.,!\?;:\"\(\)\[\]{}…]", re.UNICODE)
+
+# Strict RFC3339 UTC (Z) timestamps
+RFC3339_Z_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def parse_iso8601(ts: str) -> datetime:
-    # Accept Z or +00:00
-    # Python fromisoformat doesn't accept Z directly
     ts = ts.strip()
-    if ts.endswith("Z"):
-        ts = ts[:-1] + "+00:00"
+    if not RFC3339_Z_RE.match(ts):
+        raise ValidationError(f"Timestamp inválido (RFC3339 com 'Z' obrigatório): {ts}", code="INVALID_TIMESTAMP")
     try:
-        dt = datetime.fromisoformat(ts)
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     except Exception as e:
         raise ValidationError(f"Timestamp inválido: {ts}", code="INVALID_TIMESTAMP") from e
-    if dt.tzinfo is None:
-        # assume UTC if naive
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+    return dt
 
 
 @dataclass
@@ -79,8 +78,9 @@ def _is_meta_message(content: str) -> bool:
 
 
 def _tokenize(content: str) -> List[Tuple[str, str]]:
-    # Returns list of (original_token, normalized_for_lexicon)
-    tokens = []
+    # Returns list of (original_token, normalized_for_lexicon). Hashtags are kept as tokens
+    # but will not match the lexicon; emojis are ignored.
+    tokens: List[Tuple[str, str]] = []
     for m in TOKEN_RE.finditer(content):
         tok = m.group(0)
         tokens.append((tok, _strip_accents_lower(tok)))
@@ -95,8 +95,9 @@ def _sentiment_for_message(content: str, is_mbras_emp: bool) -> Tuple[float, str
     total_words = max(len(tokens), 1)
 
     next_multiplier = 1.0
-    neg_window = 0  # remaining tokens to invert next polarity word
-    invert_next = False
+    # Track multiple negations before the next polarity word. Each negation has a scope
+    # of up to 3 subsequent tokens. Non-polarity tokens decrement scope by 1.
+    neg_scopes: List[int] = []  # each item is remaining scope for a negation
 
     pos_sum = 0.0
     neg_sum = 0.0
@@ -104,11 +105,11 @@ def _sentiment_for_message(content: str, is_mbras_emp: bool) -> Tuple[float, str
     for orig, norm in tokens:
         if norm in INTENSIFIER_SET:
             next_multiplier = 1.5
-            # do not count as word w.r.t sums, only affects next polarity token
+            # decrement existing negation scopes due to a token consumed
+            neg_scopes = [n - 1 for n in neg_scopes if n - 1 > 0]
             continue
         if norm in NEGATION_SET:
-            invert_next = True
-            neg_window = 3
+            neg_scopes.append(3)
             continue
 
         polarity = 0  # +1 for positive word; -1 for negative word
@@ -121,12 +122,10 @@ def _sentiment_for_message(content: str, is_mbras_emp: bool) -> Tuple[float, str
             value = 1.0 * next_multiplier
             next_multiplier = 1.0
 
-            if invert_next and neg_window > 0:
+            # Apply accumulated negations parity; consume all active negations
+            if len(neg_scopes) % 2 == 1:
                 polarity *= -1
-                invert_next = False
-                neg_window = 0
-            elif neg_window > 0:
-                neg_window -= 1
+            neg_scopes.clear()
 
             # MBRAS — positivos em dobro (após intensificador/negação)
             if is_mbras_emp and polarity > 0:
@@ -138,8 +137,8 @@ def _sentiment_for_message(content: str, is_mbras_emp: bool) -> Tuple[float, str
                 neg_sum += value
         else:
             # decrement window if active and not used yet
-            if neg_window > 0:
-                neg_window -= 1
+            if neg_scopes:
+                neg_scopes = [n - 1 for n in neg_scopes if n - 1 > 0]
 
     score = (pos_sum - neg_sum) / float(total_words)
     if score > 0.1:
@@ -202,14 +201,12 @@ def _filter_future(messages: List[Dict[str, Any]], now_utc: datetime) -> List[Di
     return res
 
 
-def _window_anchor(valid_msgs: List[Dict[str, Any]]) -> Optional[datetime]:
-    if not valid_msgs:
-        return None
-    return max(m["_dt"] for m in valid_msgs)
+def _window_anchor(now_utc: datetime) -> datetime:
+    return now_utc
 
 
 def _within_window(m: Dict[str, Any], anchor: datetime, minutes: int) -> bool:
-    return (anchor - m["_dt"]) <= timedelta(minutes=minutes)
+    return m["_dt"] >= (anchor - timedelta(minutes=minutes)) and m["_dt"] <= anchor
 
 
 def _trending_topics(window_msgs: List[Dict[str, Any]], anchor: datetime) -> List[str]:
@@ -233,10 +230,13 @@ def _trending_topics(window_msgs: List[Dict[str, Any]], anchor: datetime) -> Lis
 def _detect_anomalies(all_msgs: List[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
     if not all_msgs:
         return False, None
-    # synchronized posting: all timestamps identical (same second)
-    seconds = {m["_dt"].replace(microsecond=0) for m in all_msgs}
-    if len(seconds) == 1:
-        return True, "synchronized_posting"
+    # synchronized posting tolerant: at least 3 messages and all within ±2 seconds
+    if len(all_msgs) >= 3:
+        secs = [m["_dt"].replace(microsecond=0) for m in all_msgs]
+        min_sec = min(secs)
+        max_sec = max(secs)
+        if (max_sec - min_sec) <= timedelta(seconds=2):
+            return True, "synchronized_posting"
 
     # Burst: >10 messages from same user in 5 minutes
     by_user: Dict[str, List[datetime]] = {}
@@ -302,10 +302,8 @@ def analyze_feed(messages: List[Dict[str, Any]], time_window_minutes: int, now_u
     # Filter out messages from the future (> now + 5s)
     valid_msgs = _filter_future(messages, now_utc)
 
-    anchor = _window_anchor(valid_msgs)
-    window_msgs: List[Dict[str, Any]] = []
-    if anchor is not None:
-        window_msgs = [m for m in valid_msgs if _within_window(m, anchor, time_window_minutes)]
+    anchor = _window_anchor(now_utc)
+    window_msgs: List[Dict[str, Any]] = [m for m in valid_msgs if _within_window(m, anchor, time_window_minutes)]
 
     # Flags
     flags = {

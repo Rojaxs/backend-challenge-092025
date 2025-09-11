@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: MBRAS — Backend Challenge API
+  version: 1.0.0
+paths:
+  /analyze-feed:
+    post:
+      summary: Analyze a feed of messages and compute metrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages, time_window_minutes]
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    required: [id, content, timestamp, user_id]
+                    properties:
+                      id: { type: string }
+                      content: { type: string, maxLength: 280 }
+                      timestamp: { type: string, format: date-time, example: 2025-09-10T10:30:00Z }
+                      user_id: { type: string, example: user_mbras_007 }
+                      hashtags:
+                        type: array
+                        items: { type: string, example: "#produto" }
+                      reactions: { type: integer, minimum: 0, default: 0 }
+                      shares: { type: integer, minimum: 0, default: 0 }
+                      views: { type: integer, minimum: 0, default: 0 }
+                time_window_minutes: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis:
+                    type: object
+                    properties:
+                      sentiment_distribution:
+                        type: object
+                        properties:
+                          positive: { type: number }
+                          negative: { type: number }
+                          neutral: { type: number }
+                      engagement_score: { type: number }
+                      trending_topics:
+                        type: array
+                        items: { type: string }
+                      influence_ranking:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user_id: { type: string }
+                            influence_score: { type: number }
+                      anomaly_detected: { type: boolean }
+                      anomaly_type: { type: string, nullable: true }
+                      flags:
+                        type: object
+                        properties:
+                          mbras_employee: { type: boolean }
+                          special_pattern: { type: boolean }
+                          candidate_awareness: { type: boolean }
+                      processing_time_ms: { type: integer }
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string }
+        '422':
+          description: Business rule error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, example: UNSUPPORTED_TIME_WINDOW }
+

@@ -1,0 +1,9 @@
+{
+  "messages": [
+    { "id": "e1", "content": "muito", "timestamp": "2025-09-10T10:00:00Z", "user_id": "user_aa1", "hashtags": [], "reactions": 0, "shares": 0, "views": 1 },
+    { "id": "e2", "content": "não não gostei", "timestamp": "2025-09-10T10:00:01Z", "user_id": "user_aa2", "hashtags": [], "reactions": 0, "shares": 0, "views": 1 },
+    { "id": "e3", "content": "#produto-novo ótimo!", "timestamp": "2025-09-10T10:00:02Z", "user_id": "user_aa3", "hashtags": ["#produto-novo"], "reactions": 5, "shares": 1, "views": 50 }
+  ],
+  "time_window_minutes": 30
+}
+

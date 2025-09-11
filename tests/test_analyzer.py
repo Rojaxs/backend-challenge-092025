@@ -99,3 +99,70 @@ def test_flags_especiais_and_meta():
     dist = analysis["sentiment_distribution"]
     assert dist["positive"] == 0.0 and dist["negative"] == 0.0 and dist["neutral"] == 0.0
 
+
+def test_intensifier_orphan_neutral():
+    payload = {
+        "messages": [
+            {
+                "id": "msg_004",
+                "content": "muito",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_abc",
+                "hashtags": [],
+                "reactions": 0,
+                "shares": 0,
+                "views": 1,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    dist = r.json()["analysis"]["sentiment_distribution"]
+    assert dist["neutral"] == 100.0
+
+
+def test_double_negation_cancels():
+    payload = {
+        "messages": [
+            {
+                "id": "msg_005",
+                "content": "não não gostei",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_abc",
+                "hashtags": [],
+                "reactions": 0,
+                "shares": 0,
+                "views": 1,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    analysis = r.json()["analysis"]
+    dist = analysis["sentiment_distribution"]
+    # Expect positive due to double negation canceling
+    assert dist["positive"] == 100.0
+
+
+def test_user_id_case_insensitive_mbras_flag():
+    payload = {
+        "messages": [
+            {
+                "id": "msg_006",
+                "content": "Adorei",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_MBRAS_007",
+                "hashtags": [],
+                "reactions": 0,
+                "shares": 0,
+                "views": 1,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    flags = r.json()["analysis"]["flags"]
+    assert flags["mbras_employee"] is True
