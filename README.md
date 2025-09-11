@@ -1,6 +1,18 @@
-# MBRAS — Backend Challenge (Python ou Go)
+# 🚀 MBRAS — Teste Técnico Backend Developer
 
-Sistema de Análise de Sentimentos em Tempo Real que processa feeds de mensagens e calcula métricas de engajamento com algoritmos determinísticos.
+**Bem-vindo ao desafio técnico da MBRAS!** 
+
+Este é um teste prático para avaliar suas habilidades em desenvolvimento backend. Você deve implementar um **Sistema de Análise de Sentimentos em Tempo Real** que processa feeds de mensagens e calcula métricas de engajamento usando algoritmos determinísticos.
+
+## 📋 O que você precisa fazer
+
+1. **Escolha sua linguagem**: Python (FastAPI) ou Go
+2. **Implemente a API**: Endpoint `/analyze-feed` que processa mensagens
+3. **Garanta que todos os testes passem**: 6 casos obrigatórios + casos especiais
+4. **Otimize para performance**: <200ms para 1000 mensagens
+5. **Entregue o repositório**: Link público no GitHub
+
+**🎯 Critérios de avaliação**: Algoritmos (50%) + Performance (30%) + Qualidade (20%)
 
 ## 🚀 Quickstart
 
@@ -228,12 +240,67 @@ followers = abs(hash(user_id.encode())) % 10000 + 100  # ainda não determiníst
 - [ ] Anomalias e trending implementados
 - [ ] SHA-256 determinístico para influência
 
+## 🎓 Como começar
+
+### 1. **Clone e setup inicial**
+```bash
+git clone <seu-fork-deste-repositorio>
+cd backend-challenge-092025
+
+# Python
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Go  
+go mod tidy
+```
+
+### 2. **Execute os testes para entender os requisitos**
+```bash
+# Python
+pytest -v tests/test_analyzer.py
+
+# Go
+go test ./... -v
+```
+
+### 3. **Implemente sua solução**
+- **Python**: Complete `sentiment_analyzer.py` e `main.py`
+- **Go**: Crie seu módulo seguindo a estrutura similar
+
+### 4. **Teste sua implementação**
+```bash
+# Inicie o servidor
+uvicorn main:app --reload  # Python
+# ou: go run .              # Go
+
+# Teste com curl
+curl -X POST 'http://localhost:8000/analyze-feed' \
+  -H 'Content-Type: application/json' \
+  -d @examples/sample_request.json
+```
+
+### 5. **Valide performance**
+```bash
+RUN_PERF=1 pytest -q tests/test_performance.py
+```
+
 ## 📬 Entrega
 
-Envie o link do repositório GitHub público para `mp@mbras.com.br`
+**Envie o link do repositório GitHub público para `mp@mbras.com.br`**
+
+**Inclua no email**:
+- Link do repositório
+- Linguagem escolhida (Python/Go)  
+- Breve descrição dos desafios encontrados
+- Tempo total gasto na implementação
 
 **Critérios de Avaliação**
-- Algoritmos (50%)
-- Performance (30%)
-- Qualidade do Código (20%)
+- Algoritmos (50%): Implementação correta e determinística
+- Performance (30%): Otimização e uso eficiente de memória  
+- Qualidade do Código (20%): Organização, legibilidade, tratamento de erros
+
+---
+
+**🤔 Dúvidas?** Releia a documentação - todas as especificações estão detalhadas. Parte do teste é interpretar requisitos técnicos complexos.
 
