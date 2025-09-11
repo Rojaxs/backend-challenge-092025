@@ -1,8 +1,8 @@
-# 🚀 MBRAS — Teste Técnico Backend Developer
+# 🚀 MBRAS — Teste Técnico Developer
 
 **Bem-vindo ao desafio técnico da MBRAS!** 
 
-Este é um teste prático para avaliar suas habilidades em desenvolvimento backend. Você deve implementar um **Sistema de Análise de Sentimentos em Tempo Real** que processa feeds de mensagens e calcula métricas de engajamento usando algoritmos determinísticos.
+Este é um teste prático para avaliar suas habilidades em desenvolvimento. Você deve implementar um **Sistema de Análise de Sentimentos em Tempo Real** que processa feeds de mensagens e calcula métricas de engajamento usando algoritmos determinísticos.
 
 ## 📋 O que você precisa fazer
 
