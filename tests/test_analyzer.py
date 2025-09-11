@@ -166,3 +166,64 @@ def test_user_id_case_insensitive_mbras_flag():
     assert r.status_code == 200
     flags = r.json()["analysis"]["flags"]
     assert flags["mbras_employee"] is True
+
+
+def test_special_pattern_and_non_mbras_user():
+    # Build content with exactly 42 Unicode chars, including the substring "mbras"
+    # 10 X + space + 'mbras' (5) + space + 25 Y = 42
+    content = ("X" * 10) + " mbras " + ("Y" * 25)
+    assert len(content) == 42
+
+    payload = {
+        "messages": [
+            {
+                "id": "msg_007",
+                "content": content,
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_especialista_999",  # não contém 'mbras'
+                "hashtags": ["#review"],
+                "reactions": 3,
+                "shares": 1,
+                "views": 75,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+    r = post_analyze(payload)
+    assert r.status_code == 200
+    analysis = r.json()["analysis"]
+    flags = analysis["flags"]
+    assert flags["special_pattern"] is True
+    assert flags["mbras_employee"] is False
+    # No lexicon words present → neutral distribution 100%
+    dist = analysis["sentiment_distribution"]
+    assert dist["neutral"] == 100.0
+    # Influence ranking includes the only user from this payload
+    assert analysis["influence_ranking"][0]["user_id"] == "user_especialista_999"
+
+
+def test_sha256_determinism_same_input():
+    payload = {
+        "messages": [
+            {
+                "id": "msg_det1",
+                "content": "teste",
+                "timestamp": "2025-09-10T10:00:00Z",
+                "user_id": "user_deterministic_test",
+                "hashtags": [],
+                "reactions": 1,
+                "shares": 0,
+                "views": 10,
+            }
+        ],
+        "time_window_minutes": 30,
+    }
+
+    r1 = post_analyze(payload)
+    r2 = post_analyze(payload)
+    assert r1.status_code == r2.status_code == 200
+    a1 = r1.json()["analysis"]
+    a2 = r2.json()["analysis"]
+    s1 = a1["influence_ranking"][0]["influence_score"]
+    s2 = a2["influence_ranking"][0]["influence_score"]
+    assert s1 == s2, f"Influence score should be deterministic, got {s1} vs {s2}"
