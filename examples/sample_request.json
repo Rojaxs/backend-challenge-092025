@@ -1,0 +1,16 @@
+{
+  "messages": [
+    {
+      "id": "msg_001",
+      "content": "Adorei o novo produto!",
+      "timestamp": "2025-09-10T10:30:00Z",
+      "user_id": "user_mbras_007",
+      "hashtags": ["#produto", "#review"],
+      "reactions": 12,
+      "shares": 3,
+      "views": 250
+    }
+  ],
+  "time_window_minutes": 30
+}
+
