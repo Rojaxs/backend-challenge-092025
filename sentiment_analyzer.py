@@ -9,6 +9,9 @@ import math
 import re
 import unicodedata
 
+import time
+from contextlib import contextmanager
+
 
 USER_ID_REGEX = re.compile(r"^user_[a-z0-9_]{3,}$", re.IGNORECASE)
 
@@ -237,13 +240,14 @@ def _validate_message(m: Dict[str, Any]) -> None:
             raise _build_error(f"Campo '{k}' inválido", code="INVALID_NUMBER")
 
     # timestamp
-    _ = parse_iso8601(m.get("timestamp", ""))
+    dt = parse_iso8601(m.get("timestamp", ""))
+    m["_dt"] = dt
 
 
 def _filter_future(messages: List[Dict[str, Any]], now_utc: datetime) -> List[Dict[str, Any]]:
     res = []
     for m in messages:
-        ts = parse_iso8601(m["timestamp"])  # already validated
+        ts = m["_dt"]
         if ts <= now_utc + timedelta(seconds=5):
             m["_dt"] = ts
             res.append(m)
@@ -259,6 +263,7 @@ def _within_window(m: Dict[str, Any], anchor: datetime, minutes: int) -> bool:
 
 
 def _trending_topics(window_msgs: List[Dict[str, Any]], anchor: datetime) -> List[str]:
+    start = time.perf_counter()
     # Peso: 1 + 1 / max(minutos_desde_postagem, 0.01)
     weights: Dict[str, float] = {}
     counts: Dict[str, int] = {}
@@ -290,10 +295,13 @@ def _trending_topics(window_msgs: List[Dict[str, Any]], anchor: datetime) -> Lis
     items = list(weights.items())
     # Enhanced sorting with sentiment weight tie-breaker
     items.sort(key=lambda kv: (-kv[1], -counts.get(kv[0], 0), -sentiment_weights.get(kv[0], 0), kv[0]))
+    ms = (time.perf_counter() - start) * 1000
+    print(f"trending_topics: {ms:.2f} ms")
     return [k for k, _ in items[:5]]
 
 
 def _detect_anomalies(all_msgs: List[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
+    start = time.perf_counter()
     if not all_msgs:
         return False, None
     # synchronized posting tolerant: at least 3 messages and all within ±2 seconds
@@ -353,10 +361,13 @@ def _detect_anomalies(all_msgs: List[Dict[str, Any]]) -> Tuple[bool, Optional[st
             if current_len >= 10:
                 return True, "alternating_sentiment"
 
+    ms = (time.perf_counter() - start) * 1000
+    print(f"detect_anomalies: {ms:.2f} ms")
     return False, None
 
 
 def analyze_feed(messages: List[Dict[str, Any]], time_window_minutes: int, now_utc: datetime) -> Dict[str, Any]:
+    start = time.perf_counter()
     # time_window_minutes > 0
     if not isinstance(time_window_minutes, int) or time_window_minutes <= 0:
         raise _build_error("'time_window_minutes' deve ser > 0", code="INVALID_TIME_WINDOW")
@@ -390,6 +401,11 @@ def analyze_feed(messages: List[Dict[str, Any]], time_window_minutes: int, now_u
             dist_counts[label] += 1
             included_for_dist += 1
 
+    ms = (time.perf_counter() - start) * 1000
+    print(f"analyze_feed (PRIMEIRO): {ms:.2f} ms", flush=True)
+
+    start2 = time.perf_counter()
+
     # Sentiment distribution in percentages
     if included_for_dist == 0:
         sentiment_distribution = {"positive": 0.0, "negative": 0.0, "neutral": 0.0}
@@ -418,6 +434,11 @@ def analyze_feed(messages: List[Dict[str, Any]], time_window_minutes: int, now_u
         d["shares"] += m.get("shares", 0)
         d["views"] += m.get("views", 0)
 
+    ms = (time.perf_counter() - start2) * 1000
+    print(f"analyze_feed (SEGUNDO): {ms:.2f} ms")
+
+    start3 = time.perf_counter()
+
     ranking: List[Tuple[float, float, str]] = []  # (score, eng_rate, user_id)
     scored: List[Dict[str, Any]] = []
     for u, agg in per_user.items():
@@ -442,6 +463,8 @@ def analyze_feed(messages: List[Dict[str, Any]], time_window_minutes: int, now_u
     # Anomalies (across the batch)
     anomaly_detected, anomaly_type = _detect_anomalies(valid_msgs)
 
+    ms = (time.perf_counter() - start3) * 1000
+    print(f"analyze_feed (TERCEIRO): {ms:.2f} ms")
     return {
         "analysis": {
             "sentiment_distribution": sentiment_distribution,
